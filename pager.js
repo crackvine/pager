@@ -16,18 +16,21 @@ const pagerService = (dependencies) => {
   const notify = async (targets) => {
     let notifiedTargetCount = 0;
 
-    targets.forEach((target) => {
-      if (notifiedTargets.has(target.id)) return;
+    await Promise.all(
+      targets.map(async (target) => {
+        if (notifiedTargets.has(target.id)) return;
 
-      let notifySuccess = false;
-      if (target.type === 'sms') notifySuccess = smsAdapter.notify(target.number);
-      if (target.type === 'email') notifySuccess = emailAdapter.notify(target.email);
-      if (notifySuccess) {
-        notifiedTargets.add(target.id);
-        notifiedTargetCount += 1;
-      }
-    });
+        let notifySuccess = false;
+        if (target.type === 'sms') notifySuccess = await smsAdapter.notify(target.number);
+        if (target.type === 'email') notifySuccess = await emailAdapter.notify(target.email);
+        if (notifySuccess) {
+          notifiedTargets.add(target.id);
+          notifiedTargetCount += 1;
+        }
+      }),
+    );
 
+    console.debug(notifiedTargets);
     return notifiedTargetCount;
   };
 
@@ -85,12 +88,18 @@ const pagerService = (dependencies) => {
     console.debug(monitoredServices);
   };
 
+  const serviceStatus = (serviceId) => (serviceId ? monitoredServices[serviceId] : monitoredServices);
+
+  const notificationStatus = () => notifiedTargets;
+
   return {
     alert,
     acknowledge,
     timeout,
     clear,
+    serviceStatus,
+    notificationStatus,
   };
 };
 
-export default pagerService;
+module.exports = pagerService;
