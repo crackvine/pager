@@ -2,9 +2,12 @@ const config = {
   ackTimeoutMinutes: 15,
 };
 
+const wait = (msDelay) => new Promise((resolve) => setTimeout(resolve, msDelay));
+
 const pagerService = (dependencies) => {
   const monitoredServices = {};
   const notifiedTargets = new Set();
+  const semaphores = new Set();
 
   const {
     escalationPolicyAdapter,
@@ -14,15 +17,19 @@ const pagerService = (dependencies) => {
   } = dependencies;
 
   const notify = async (targets) => {
-    let notifiedTargetCount = 0;
+    while (semaphores.has('notify')) {
+      await wait(200);
+    }
+    semaphores.add('notify');
 
+    let notifiedTargetCount = 0;
     await Promise.all(
       targets.map(async (target) => {
         if (notifiedTargets.has(target.id)) return;
 
         let notifySuccess = false;
-        if (target.type === 'sms') notifySuccess = await smsAdapter.notify(target.number);
-        if (target.type === 'email') notifySuccess = await emailAdapter.notify(target.email);
+        if (target.type === 'sms') notifySuccess = await smsAdapter.notify(target.target);
+        if (target.type === 'email') notifySuccess = await emailAdapter.notify(target.target);
         if (notifySuccess) {
           notifiedTargets.add(target.id);
           notifiedTargetCount += 1;
@@ -30,7 +37,7 @@ const pagerService = (dependencies) => {
       }),
     );
 
-    console.debug(notifiedTargets);
+    semaphores.delete('notify');
     return notifiedTargetCount;
   };
 
@@ -48,8 +55,6 @@ const pagerService = (dependencies) => {
         timerAdapter.setTimer(serviceId, config.ackTimeoutMinutes);
       }
     }
-
-    console.debug(monitoredServices);
   };
 
   const acknowledge = (targetId, serviceId) => {
@@ -58,8 +63,6 @@ const pagerService = (dependencies) => {
     if (monitoredServices[serviceId]) {
       monitoredServices[serviceId].acknowledged = true;
     }
-
-    console.debug(monitoredServices);
   };
 
   const timeout = async (serviceId) => {
@@ -74,8 +77,6 @@ const pagerService = (dependencies) => {
         timerAdapter.setTimer(serviceId, config.ackTimeoutMinutes);
       }
     }
-
-    console.debug(monitoredServices);
   };
 
   const clear = (serviceId) => {
@@ -84,8 +85,6 @@ const pagerService = (dependencies) => {
       healthy: true,
       acknowledged: false,
     };
-
-    console.debug(monitoredServices);
   };
 
   const serviceStatus = (serviceId) => (serviceId ? monitoredServices[serviceId] : monitoredServices);
