@@ -1,6 +1,6 @@
 # pager service
 
-This pager service provides a simple management of alerts and notifications for the monitored services.
+This pager service provides simple management of alerts and notifications for the monitored services.
 
 The state of the monitored services and targets notified is stored in memory. In a real scenario this state tracking could be provided by a persistence service.
 
