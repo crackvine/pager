@@ -80,26 +80,30 @@ const pagerService = ({
       || monitoredServices[serviceId].acknowledged) return;
 
     logger.line(`timeout received for unhealthy service ${serviceId}`);
-    const maxLevel = escalationPolicyAdapter.getLevels(serviceId).length;
-    if (monitoredServices[serviceId] && monitoredServices[serviceId].level < maxLevel) {
-      monitoredServices[serviceId].level += 1;
-      logger.line(`service ${serviceId} escalated to ${monitoredServices[serviceId].level}`);
+    const maxLevel = await escalationPolicyAdapter.getLevels(serviceId).length - 1;
 
-      const targets = await escalationPolicyAdapter.getTargets(serviceId, monitoredServices[serviceId].level);
-      logger.line('escalated targets', targets);
-      const notified = await notify(targets);
-      logger.line(`notified ${notified} escalated targets`);
+    if (monitoredServices[serviceId].level >= maxLevel) {
+      logger.line(`service ${serviceId} already escalated to maximum level (${maxLevel})`);
+      return;
+    }
 
-      if (notified) {
-        logger.line(`Setting timer for service ${serviceId}`);
-        timerAdapter.setTimer(serviceId, config.ackTimeoutMinutes);
-      }
+    monitoredServices[serviceId].level += 1;
+    logger.line(`service ${serviceId} escalated to ${monitoredServices[serviceId].level}`);
+
+    const targets = await escalationPolicyAdapter.getTargets(serviceId, monitoredServices[serviceId].level);
+    logger.line(`escalated targets: ${JSON.stringify(targets)}`);
+    const notified = await notify(targets);
+    logger.line(`notified ${notified} escalated targets`);
+
+    if (notified) {
+      logger.line(`Setting timer for service ${serviceId}`);
+      timerAdapter.setTimer(serviceId, config.ackTimeoutMinutes);
     }
   };
 
   const clear = (serviceId) => {
     if (!monitoredServices[serviceId]) return;
-    logger.line(`clearing status for service ${serviceId}`);
+    logger.line(`clearing alert for service ${serviceId}`);
     monitoredServices[serviceId].level = 0;
     monitoredServices[serviceId].healthy = true;
     monitoredServices[serviceId].acknowledged = false;

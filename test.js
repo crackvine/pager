@@ -182,4 +182,14 @@ describe('timeout tests', () => {
     expect(emailAdapter.notify).toHaveBeenCalledWith('fp@home.com');
     expect(smsAdapter.notify).toHaveBeenCalledWith('+34123232');
   });
+
+  test('timeout does not notify once highest level has been reached', async () => {
+    await pager.alert(1000);
+    await pager.timeout(1000);
+    await pager.timeout(1000);
+    await pager.timeout(1000);
+
+    expect(smsAdapter.notify.mock.calls.length).toBe(2);
+    expect(emailAdapter.notify.mock.calls.length).toBe(2);
+  });
 });
